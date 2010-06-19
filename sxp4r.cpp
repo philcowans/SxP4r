@@ -14,6 +14,56 @@ VALUE TLE = Qnil;
 VALUE Orbit = Qnil;
 VALUE ECI = Qnil;
 VALUE CoordGeo = Qnil;
+VALUE Site = Qnil;
+VALUE CoordTopo = Qnil;
+
+static void CoordTopo_free(void *coord_topo) {
+  delete (cCoordTopo *)coord_topo;
+}
+
+static VALUE CoordTopo_az(VALUE self) {
+  cCoordTopo *coord_topo_value;
+  Data_Get_Struct(self, cCoordTopo, coord_topo_value);
+  return rb_float_new(coord_topo_value->m_Az);
+}
+
+static VALUE CoordTopo_el(VALUE self) {
+  cCoordTopo *coord_topo_value;
+  Data_Get_Struct(self, cCoordTopo, coord_topo_value);
+  return rb_float_new(coord_topo_value->m_El);
+}
+
+static VALUE CoordTopo_range(VALUE self) {
+  cCoordTopo *coord_topo_value;
+  Data_Get_Struct(self, cCoordTopo, coord_topo_value);
+  return rb_float_new(coord_topo_value->m_Range);
+}
+
+
+static void Site_free(void *orbit) {
+  delete (cSite *)orbit;
+}
+
+static VALUE Site_get_look_angle(VALUE self, VALUE eci) {
+  cEci *eci_value;
+  Data_Get_Struct(eci, cEci, eci_value);
+  
+  cSite *site_value;
+  Data_Get_Struct(self, cSite, site_value);
+
+  cCoordTopo *coord_value = new cCoordTopo(site_value->getLookAngle(*eci_value));
+  VALUE rb_coord = Data_Wrap_Struct(CoordTopo, NULL, CoordTopo_free, coord_value);
+
+  return rb_coord;
+}
+
+static VALUE Site_new(VALUE klass, VALUE lat, VALUE lon, VALUE alt) {
+  cSite *newSite = new cSite(NUM2DBL(lat), NUM2DBL(lon), NUM2DBL(alt));
+
+  VALUE rb_Site = Data_Wrap_Struct(Site, NULL, Site_free, newSite);
+  return rb_Site;
+}
+
 
 static void TLE_free(void *tle)
 {
@@ -74,6 +124,28 @@ static VALUE ECI_to_geo(VALUE self) {
   return rb_CoordGeo;
 }
 
+static VALUE ECI_x(VALUE self) {
+  cEci *eci_value;
+  Data_Get_Struct(self, cEci, eci_value);
+
+  return rb_float_new(eci_value->getPos().m_x);
+}
+
+static VALUE ECI_y(VALUE self) {
+  cEci *eci_value;
+  Data_Get_Struct(self, cEci, eci_value);
+
+  return rb_float_new(eci_value->getPos().m_y);
+}
+
+static VALUE ECI_z(VALUE self) {
+  cEci *eci_value;
+  Data_Get_Struct(self, cEci, eci_value);
+
+  return rb_float_new(eci_value->getPos().m_z);
+}
+
+
 static void Orbit_free(void *orbit) {
   delete (cOrbit *)orbit;
 }
@@ -112,9 +184,22 @@ extern "C" void Init_sxp4r() {
 
   ECI = rb_define_class_under(SxP4r, "ECI", rb_cObject);
   rb_define_method(ECI, "to_geo", (VALUE (*)(...))ECI_to_geo, 0);
+  rb_define_method(ECI, "x", (VALUE (*)(...))ECI_x, 0);
+  rb_define_method(ECI, "y", (VALUE (*)(...))ECI_y, 0);
+  rb_define_method(ECI, "z", (VALUE (*)(...))ECI_z, 0);
 
   CoordGeo = rb_define_class_under(SxP4r, "CoordGeo", rb_cObject);
   rb_define_method(CoordGeo, "lat", (VALUE (*)(...))CoordGeo_lat, 0);
   rb_define_method(CoordGeo, "lon", (VALUE (*)(...))CoordGeo_lon, 0);
   rb_define_method(CoordGeo, "alt", (VALUE (*)(...))CoordGeo_alt, 0);
+
+  Site = rb_define_class_under(SxP4r, "Site", rb_cObject);
+  rb_define_singleton_method(Site, "new", (VALUE (*)(...))Site_new, 3);
+  rb_define_method(Site, "get_look_angle", (VALUE (*)(...))Site_get_look_angle, 1);
+
+  CoordTopo = rb_define_class_under(SxP4r, "CoordTopo", rb_cObject);
+  rb_define_method(CoordTopo, "az", (VALUE (*)(...))CoordTopo_az, 0);
+  rb_define_method(CoordTopo, "el", (VALUE (*)(...))CoordTopo_el, 0);
+  rb_define_method(CoordTopo, "range", (VALUE (*)(...))CoordTopo_range, 0);
+
 }
